@@ -6,37 +6,37 @@
  */
 
 #include "interrupts_student1_student2.hpp"
-static const unsigned int quantum = 100;
 
 void FCFS(std::vector<PCB> &ready_queue) {
-    std::sort( 
-                ready_queue.begin(),
-                ready_queue.end(),
+    std::sort( ready_queue.begin(), ready_queue.end(),
                 []( const PCB &first, const PCB &second ){
                     return (first.arrival_time > second.arrival_time); 
                 } 
             );
 }
 
-struct IO {
+// Keeps track of the IO events by storing the process and completion time.
+struct IOEvent {
     PCB process;
-    unsigned int io;
+    unsigned int io_completion;
 };
 
 std::tuple<std::string /* add std::string for bonus mark */ > 
 run_simulation(std::vector<PCB> list_processes) {
 
     std::vector<PCB> ready_queue;   //The ready queue of processes
-    std::vector<IO>  wait_queue;    //The wait queue of processes
+    std::vector<IOEvent>  wait_queue;    //The wait queue of processes
     std::vector<PCB> job_list;      //A list to keep track of all the processes. This is similar
                                     //to the "Process, Arrival time, Burst time" table that you
                                     //see in questions. You don't need to use it, I put it here
                                     //to make the code easier :).*/
 
+    // Declare variables
     unsigned int current_time = 0;
     PCB running;
-
-    unsigned int time_slice_used = 0;
+    static const unsigned int quantum = 100;
+    unsigned int quantum_slice = 0;
+    bool event;
 
     //Initialize an empty running process
     idle_CPU(running);
@@ -67,120 +67,120 @@ run_simulation(std::vector<PCB> list_processes) {
                 execution_status += print_exec_status(current_time, process.PID, NEW, READY);
             }
         }
-
+        // Reset IO
+        event = false;
         ///////////////////////MANAGE WAIT QUEUE/////////////////////////
         //This mainly involves keeping track of how long a process must remain in the wait queue
-        for (auto it = wait_queue.begin(); it != wait_queue.end();) {
-
-            it->io--;
-
-            if (it->io == 0) {
-                execution_status += print_exec_status(
-                    current_time,
-                    it->process.PID,
-                    WAITING,
-                    READY
-                );
-
-                it->process.state = READY;
-                ready_queue.push_back(it->process);
-
-                it = wait_queue.erase(it);
+        for (int i = 0; i < (int)wait_queue.size();) {
+            wait_queue[i].io_completion--;
+            
+            // Checking to see where IO finishes
+            if (wait_queue[i].io_completion == 0) {
+                execution_status += print_exec_status(current_time, wait_queue[i].process.PID,
+                                WAITING, READY);
+                
+                // Processes go from wait queue to ready, then gets removed from the wait queue
+                wait_queue[i].process.state = READY;
+                ready_queue.push_back(wait_queue[i].process);
+                wait_queue.erase(wait_queue.begin() + i);
+            } else {
+                i++;
             }
-            else {
-                ++it;
-            }
+             
         }
         /////////////////////////////////////////////////////////////////
 
         //////////////////////////SCHEDULER//////////////////////////////
-        if (running.state != RUNNING && !ready_queue.empty()) {
+         if (running.state != RUNNING) {
+            // Choosing a process from the ready queue, then performing FCFS
+            if (!ready_queue.empty()) {
+                FCFS(ready_queue);
+                run_process(running, job_list, ready_queue, current_time);
+                quantum_slice = 0;
 
-            FCFS(ready_queue);
-
-            run_process(running, job_list, ready_queue, current_time);
-
-            time_slice_used = 0;
-
-            execution_status += print_exec_status(
-                current_time,
-                running.PID,
-                READY,
-                RUNNING
-            );
-        }
-    
-        if (running.state == RUNNING) {
-
-            running.remaining_time--;
-            time_slice_used++;
-
-            sync_queue(job_list, running);
-
-            unsigned executed = running.processing_time - running.remaining_time;
-            bool needs_io = false;
-
-            if (running.io_freq > 0 && executed > 0) {
-                if (executed % running.io_freq == 0)
-                    needs_io = true;
+                // Display status
+                execution_status += print_exec_status(current_time, running.PID,
+                                                      READY, RUNNING);
             }
 
-            if (running.remaining_time == 0) {
+        } else {
+            // Proces running
+            quantum_slice++;
+            running.remaining_time--;
+            sync_queue(job_list, running);
 
-                execution_status += print_exec_status(
-                    current_time + 1,
-                    running.PID,
-                    RUNNING,
-                    TERMINATED
-                );
+            // Process for I/O event
+            if (running.io_freq > 0) {
+                unsigned int time = running.processing_time - running.remaining_time;
+                if (time && !(time % running.io_freq)) {
+                    event = true;
+                }
+            }
+
+            // Process terminating, going fromm running to terminated
+            if (running.remaining_time == 0) {
+                execution_status += print_exec_status(current_time, running.PID,
+                                                      RUNNING, TERMINATED);
 
                 terminate_process(running, job_list);
                 idle_CPU(running);
-            }
-            else if (needs_io) {
+                quantum_slice = 0;
 
-                execution_status += print_exec_status(
-                    current_time + 1,
-                    running.PID,
-                    RUNNING,
-                    WAITING
-                );
+                // Next ready process
+                if (!ready_queue.empty()) {
+                    FCFS(ready_queue);
+                    run_process(running, job_list, ready_queue, current_time);
+
+                    execution_status += print_exec_status(current_time, running.PID,
+                                                          READY, RUNNING);
+                }
+            }
+            // Process has an IO event
+            else if (event) {
+                execution_status += print_exec_status(current_time, running.PID,
+                                                      RUNNING, WAITING);
 
                 running.state = WAITING;
-                sync_queue(job_list, running);
-
-                IO entry;
-                entry.process = running;
-                entry.io = running.io_duration;
-
-                wait_queue.push_back(entry);
-
-                idle_CPU(running);
-                time_slice_used = 0;
+                
+                // Create IO event
+                IOEvent e;
+                e.process = running;
+                e.io_completion = running.io_duration;
+                
+                // Reset quantum slice
+                wait_queue.push_back(e);
+                quantum_slice = 0;
+                idle_CPU(running);   
             }
-            else if (time_slice_used >= quantum) {
-
-                execution_status += print_exec_status(
-                    current_time + 1,
-                    running.PID,
-                    RUNNING,
-                    READY
-                );
+            // Quantum time has been exceeded
+            else if (quantum_slice >= quantum) {
+                execution_status += print_exec_status(current_time, running.PID,
+                                                      RUNNING, READY);
 
                 running.state = READY;
+                // Placing process back in ready queue
+                sync_queue(job_list, running);
                 ready_queue.push_back(running);
-
+            
+                quantum_slice = 0;
                 idle_CPU(running);
-                time_slice_used = 0;
-            }
-        }
 
+                //Next ready process
+                if (!ready_queue.empty()) {
+                    FCFS(ready_queue);
+                    run_process(running, job_list, ready_queue, current_time);
+
+                    execution_status += print_exec_status(current_time, running.PID,
+                                                          READY, RUNNING);
+                }
+            }
+            sync_queue(job_list, running);
+        }
+        // Advancing time
         current_time++;
     }
-
     //Close the output table
     execution_status += print_exec_footer();
-
     return std::make_tuple(execution_status);
 }
 
@@ -214,6 +214,7 @@ int main(int argc, char** argv) {
     }
     input_file.close();
 
+    //With the list of processes, run the simulation
     auto [exec] = run_simulation(list_process);
 
     write_output(exec, "execution.txt");

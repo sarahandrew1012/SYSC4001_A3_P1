@@ -15,7 +15,6 @@ void EP(std::vector<PCB> &ready_queue) {
         }
     );
 }
-
 // Keeps track of the IO events by storing the process and completion time.
 struct IOEvent {
     PCB process;
