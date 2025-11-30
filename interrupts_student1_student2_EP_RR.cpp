@@ -117,6 +117,7 @@ std::tuple<std::string /* add std::string for bonus mark */ > run_simulation(std
 
                 terminate_process(running, job_list);
                 idle_CPU(running);
+                quantum_remaining = 0;
             }
 
             // Prcoess has exceeded quantum time slice
@@ -162,16 +163,13 @@ std::tuple<std::string /* add std::string for bonus mark */ > run_simulation(std
 
         // When the CPU is not being used, pick the next process.
         // Chooses process with the smallest PID
-        else {
+        if (running.state != RUNNING && !ready_queue.empty()) {
+            EP(ready_queue);
+            run_process(running, job_list, ready_queue, current_time);
+            quantum_remaining = 0;
 
-            if (!ready_queue.empty()) {
-                EP(ready_queue);
-                run_process(running, job_list, ready_queue, current_time);
-                quantum_remaining = 0;
-
-                execution_status += print_exec_status(current_time, running.PID,
-                    READY, RUNNING);
-            }
+            execution_status += print_exec_status(current_time, running.PID,
+                                          READY, RUNNING);
         }
         // Advance time 
         current_time++;
