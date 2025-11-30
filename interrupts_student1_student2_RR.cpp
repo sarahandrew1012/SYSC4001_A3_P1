@@ -184,7 +184,6 @@ run_simulation(std::vector<PCB> list_processes) {
     return std::make_tuple(execution_status);
 }
 
-
 int main(int argc, char** argv) {
 
     //Get the input file from the user
