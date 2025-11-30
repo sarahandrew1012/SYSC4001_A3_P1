@@ -1,6 +1,8 @@
 /**
  * @file interrupts.cpp
  * @author Sasisekhar Govind
+ * @author Sarah Andrew - 101303468
+ * @author Kalyah Mckesey - 101307188
  * @brief template main.cpp file for Assignment 3 Part 1 of SYSC4001
  * 
  */

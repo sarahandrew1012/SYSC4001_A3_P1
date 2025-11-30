@@ -1,7 +1,9 @@
 /**
  * @file interrupts.cpp
  * @author Sasisekhar Govind
- * @brief template main.cpp file for Assignment 3 Part 1 of SYSC4001   //   FOR EP AND RR
+ * @author Sarah Andrew - 101303468
+ * @author Kalyah Mckesey - 101307188
+ * @brief template main.cpp file for Assignment 3 Part 1 of SYSC4001
  * 
  */
 #include "interrupts_student1_student2.hpp"
@@ -16,7 +18,7 @@ void FCFS(std::vector<PCB> &ready_queue) {
             );
 }
 
-// EP scheduler (PID priority)
+// EP scheduler
 void EP(std::vector<PCB> &ready_queue) {
     std::sort(
         ready_queue.begin(),
@@ -26,7 +28,6 @@ void EP(std::vector<PCB> &ready_queue) {
         }
     );
 }
-
 // Keeps track of the IO events by storing the process and completion time.
 struct IOEvent {
     PCB process;
@@ -100,7 +101,6 @@ std::tuple<std::string /* add std::string for bonus mark */ > run_simulation(std
         /////////////////////////////////////////////////////////////////
 
         //////////////////////////SCHEDULER//////////////////////////////
-        // EP + RR scheduling
         // Process currently running 
         if (running.state == RUNNING) {
             running.remaining_time--;
