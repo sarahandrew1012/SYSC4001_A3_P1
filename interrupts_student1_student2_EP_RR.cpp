@@ -23,8 +23,8 @@ void EP(std::vector<PCB> &ready_queue) {
     std::sort(
         ready_queue.begin(),
         ready_queue.end(),
-        [](const PCB &a, const PCB &b){
-            return a.PID > b.PID;   // smallest PID ends at back()
+        [](const PCB &first, const PCB &second){
+            return first.PID > second.PID;  
         }
     );
 }
